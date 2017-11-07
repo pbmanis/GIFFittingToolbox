@@ -2,8 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from scipy.signal import fftconvolve
-from scipy import weave
-from scipy.weave import converters
+# from scipy import weave
+# from scipy.weave import converters
+import weave
+from weave import converters
 
 import Tools
 

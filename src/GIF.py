@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import numpy as np
 
-from scipy import weave
+#from scipy import weave
+import weave
 from numpy.linalg import inv
 
 from ThresholdModel import *
@@ -291,7 +292,7 @@ class GIF(ThresholdModel) :
 
 
         # Compute adaptation current (sum of eta triggered at spike times in spks) 
-        eta_sum  = np.array(np.zeros(p_T + 1.1*p_eta_l + p_Tref_i), dtype="double")   
+        eta_sum  = np.array(np.zeros(int(p_T + 1.1*p_eta_l + p_Tref_i)), dtype="double")   
         
         for s in spks_i :
             eta_sum[s + 1 + p_Tref_i  : s + 1 + p_Tref_i + p_eta_l] += p_eta

@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from scipy import weave
+#from scipy import weave
+import weave
 
 import ReadIBW
 

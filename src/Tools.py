@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from scipy.optimize import leastsq
-from scipy import weave
+#from scipy import weave
+import weave
 
 import sys
 
