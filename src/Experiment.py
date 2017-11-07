@@ -224,7 +224,47 @@ class Experiment :
         
         return prediction
         
+    ############################################################################################
+    # Compute model V
+    ############################################################################################         
+    def compareSpikes(self, spiking_model, nb_rep=100):
 
+        """
+        Evaluate the predictive power of a spiking model in comparison to training set.
+        spiking_model : Spiking Model Object used to predict spiking activity
+        np_rep: number of times the spiking model is stimulated to predict spikes
+  
+        """
+
+        # Collect spike times in training set
+
+        all_spks_times_trainingset = []
+
+        for tr in self.trainingset_traces:
+            spks_times = tr.getSpikeTimes()
+            all_spks_times_trainingset.append(spks_times)
+    
+
+    
+        # Predict spike times using model
+        
+        T_test = self.trainingset_traces[0].T       # duration of the test set input current
+        I_test = self.trainingset_traces[0].I       # test set current used in experimetns
+        
+        all_spks_times_prediction = []
+        
+        print "Predict spike times..."
+        
+        for rep in np.arange(nb_rep) :
+            print "Progress: %2.1f %% \r" % (100*(rep+1)/nb_rep),
+            spks_times = spiking_model.simulateSpikingResponse(I_test, self.dt)
+            all_spks_times_prediction.append(spks_times)
+        
+        # Create SpikeTrainComparator object containing experimental and predicted spike times 
+        
+        prediction = SpikeTrainComparator(T_test, all_spks_times_trainingset, all_spks_times_prediction)
+        
+        return prediction
         
     ############################################################################################
     # AUXILIARY FUNCTIONS

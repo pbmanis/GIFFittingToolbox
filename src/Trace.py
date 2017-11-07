@@ -41,7 +41,7 @@ class Trace :
 
     
              
-        # LOAD EXPERIMENTAL DATA FROM IGOR FILE (V AND I SHOULD COTAIN PATH OF DATA FILES)
+        # LOAD EXPERIMENTAL DATA FROM IGOR FILE (V AND I SHOULD CONTAIN PATH OF DATA FILES)
         if FILETYPE=='Igor' :
                         
             V_rec       = ReadIBW.read(V)
@@ -51,7 +51,7 @@ class Trace :
             self.I     = np.array(I[:int(T/self.dt)])*I_units/10**-9             # convert input current trace to nA  
 
 
-        # LOAD EXPERIMENTAL DATA FROM VECTOR (V AND I SHOULD COTAIN ARRAYS OR LISTS)
+        # LOAD EXPERIMENTAL DATA FROM VECTOR (V AND I SHOULD CONTAIN ARRAYS OR LISTS)
 
         if FILETYPE=='Array' :
                     
