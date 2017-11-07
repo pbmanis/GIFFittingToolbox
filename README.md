@@ -1,5 +1,9 @@
 # GIFFittingToolbox
 
+This is a clone of the GIFFittingToolbox from Pozzorini et al. 
+The branch "update_weave" replaces the scipy.weave imports with import of standalone weave (scipy.weave has been deprecated).
+
+
 The content of this web page is associated with the following publications:
 
 C. Pozzorini, S. Mensi, O. Hagens, R. Naud, C. Koch and W. Gerstner, Automated high-throughput characterization of single neurons by means of simplified spiking neuron models,PLOS Computational Biology 2015
