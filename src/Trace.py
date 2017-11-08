@@ -260,7 +260,7 @@ class Trace :
 
 
 
-    def computeAverageSpikeShape(self):
+    def computeAverageSpikeShape(self, threshold=0.):
         
         """
         Compute the average spike shape using spikes in ROI.
@@ -273,7 +273,7 @@ class Trace :
         DT_after_i  = int(DT_after/self.dt)
     
         if self.spks_flag == False :
-            self.detectSpikes()
+            self.detectSpikes(threshold=threshold)
          
                 
         all_spikes = []
