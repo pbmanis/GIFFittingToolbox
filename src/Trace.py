@@ -3,10 +3,26 @@ import numpy as np
 
 #from scipy import weave
 import weave
+from numba import jit
 
 import ReadIBW
 
+@jit(nopython=True, cache=True)
+def nb_spikethr(V, threshold, ref_ind):    
 
+    spks = []
+
+    t=0
+    while (t<len(V)-1) :
+    
+        if (V[t] >= threshold and V[t-1] <= threshold) :
+            spks.append(t)
+            t += ref_ind
+        t += 1
+                
+    spks = np.array(spks)
+    return spks
+      
 
 class Trace :
 
@@ -54,7 +70,8 @@ class Trace :
         # LOAD EXPERIMENTAL DATA FROM VECTOR (V AND I SHOULD CONTAIN ARRAYS OR LISTS)
 
         if FILETYPE=='Array' :
-                    
+            print('len: ', int(T/self.dt))
+            print('V_units: ', V_units) 
             self.V_rec = np.array(V[:int(T/self.dt)])*V_units/10**-3        # set mV
             self.I     = np.array(I[:int(T/self.dt)])*I_units/10**-9        # set nA 
 
@@ -186,28 +203,30 @@ class Trace :
     # FUNCTIONS ASSOCIATED TO SPIKES IN THE TRACE
     #################################################################################################
 
-    def detectSpikes_python(self, threshold=0.0, ref=3.0):
+    def detectSpikes(self, threshold=0.0, ref=3.0):
         
         """
         Detect action potentials by threshold crossing (parameter threshold, mV) from below (i.e. with dV/dt>0).
         To avoid multiple detection of same spike due to noise, use an 'absolute refractory period' ref, in ms.
         """ 
-        
-        self.spks = []
-        ref_ind = int(ref/self.dt)
-        t=0
-        while (t<len(self.V)-1) :
-            
-            if (self.V[t] >= threshold and self.V[t-1] <= threshold) :
-                self.spks.append(t)
-                t+=ref_ind
-            t+=1
-                        
-        self.spks = np.array(self.spks)
+        ref_ind = int(ref/self.dt)        
+        self.spks = nb_spikethr(self.V, threshold, ref_ind)
+        # self.spks = []
+        #
+        # t=0
+        # while (t<len(self.V)-1) :
+        #
+        #     if (self.V[t] >= threshold and self.V[t-1] <= threshold) :
+        #         self.spks.append(t)
+        #         t+=ref_ind
+        #     t+=1
+        #
+        # self.spks = np.array(self.spks)
         self.spks_flag = True
 
 
-    def detectSpikes(self, threshold=0.0, ref=3.0):
+
+    def detectSpikes_weave(self, threshold=0.0, ref=3.0):
         
         """
         Detect action potentials by threshold crossing (parameter threshold, mV) from below (i.e. with dV/dt>0).
@@ -227,7 +246,7 @@ class Trace :
         spike_train = np.zeros(p_T_i)
         spike_train = np.array(spike_train, dtype='double')
         
-                
+        
         code =  """
                 #include <math.h>
                 

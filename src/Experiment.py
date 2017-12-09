@@ -276,7 +276,7 @@ class Experiment :
         Python implementation (to speed up, use the function detectSpikes implemented in C).
         """
 
-        print "Detect spikes!"
+        print "Detect spikes (python)!"
                 
         self.spikeDetection_threshold = threshold   
         self.spikeDetection_ref = ref         
@@ -290,7 +290,7 @@ class Experiment :
         for tr in self.testset_traces :
             tr.detectSpikes_python(self.spikeDetection_threshold, self.spikeDetection_ref)         
         
-        print "Done!"
+        print "Done detecting spikes."
         
         
     def detectSpikes(self, threshold=0.0, ref=3.0):
@@ -300,7 +300,7 @@ class Experiment :
         C implementation.
         """
 
-        print "Detect spikes!"
+        print "Detect spikes (regular)!"
                 
         self.spikeDetection_threshold = threshold   
         self.spikeDetection_ref = ref         

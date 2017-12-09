@@ -58,6 +58,7 @@ class Filter_Rect(Filter) :
         """
         
         self.computeBins() 
+        print('*******\nfilterrect.setFilter_function: Setting f(self.support): ', self.support, f)
         self.filter_coeff = f(self.support)
  
               
@@ -68,9 +69,9 @@ class Filter_Rect(Filter) :
         """
                 
         self.computeBins()
-        
+        print('Filter_Rect:computeinterpolatedfilter bins: ', dt, self.bins)
         bins_i = Tools.timeToIndex(self.bins, dt)
-        
+        print('filter coeffs: ', self.filter_coeff)
         if self.filter_coeffNb == len(self.filter_coeff) :
         
             filter_interpol = np.zeros( (bins_i[-1] - bins_i[0])  )

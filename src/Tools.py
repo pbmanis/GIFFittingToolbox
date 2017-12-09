@@ -7,6 +7,7 @@ import weave
 
 import sys
 
+from numba import jit  
 
 ###########################################################
 # Remove axis
@@ -34,7 +35,31 @@ def reprint(str):
 # Generate Ornstein-Uhlenbeck process
 ###########################################################
 
+@jit(nopython=True, cache=True)
 def generateOUprocess(T=10000.0, tau=3.0, mu=0.0, sigma=1.0, dt=0.1):
+    
+    """
+    Generate an Ornstein-Uhlenbeck (stationnary) process with:
+    - mean mu
+    - standard deviation sigma
+    - temporal correlation tau (ms)
+    The duration of the signal is specified by the input parameter T (in ms).
+    The process is generated in discrete time with temporal resolution dt (in ms)
+    """
+    print ('&&&&&&&&&&&&&&&&&& OU process')
+    T_ind = int(T/dt)
+
+    white_noise = np.random.randn(T_ind)
+    OU_process = np.zeros(T_ind)
+    OU_k1 = dt / tau
+    OU_k2 = np.sqrt(2.0*dt/tau)
+
+    for t in range(T_ind):
+        OU_process[t+1] = OU_process[t] + (mu - OU_process[t])*OU_k1 +  sigma*OU_k2*white_noise[t]  
+    return OU_process   
+
+
+def generateOUprocess_weave(T=10000.0, tau=3.0, mu=0.0, sigma=1.0, dt=0.1):
     
     """
     Generate an Ornstein-Uhlenbeck (stationnary) process with:

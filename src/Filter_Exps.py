@@ -1,17 +1,47 @@
-import matplotlib.pyplot as plt
-import numpy as np
 
-from scipy.signal import fftconvolve
+import numpy as np
+from numba import jit
+
+#from scipy.signal import fftconvolve
 # from scipy import weave
 # from scipy.weave import converters
 import weave
 from weave import converters
 
 import Tools
-
+import sys, traceback
 from Filter import *
 
 
+@jit(nopython=True, cache=True)
+def convolve(I, X, R, dt, T_ind, p_taus):
+
+    # CONVOLUTION
+
+    for t in range(T_ind-1):  # (int t=0; t<T_ind-1; t++) {
+
+        for r in range(R): # for (int r=0; r<R; r++)
+            X[t+1, r] = (1.0 - dt/p_taus[r])*X[t,r] + I[t]*dt  # X(t+1,r) = (1.0 - dt/p_taus(r))*X(t,r) + I(t)*dt;
+    return X
+
+@jit(nopython=True, cache=True)
+def convolve_basis(X, R, dt, p_spks_i, p_spks_L, p_T, p_taus):
+#    print 'spiketrainbasisfunctions'
+    spks_cnt = 0
+    next_spike = p_spks_i[0]
+    for t in range(p_T-1):
+        for r in range(R):
+            X[t+1,r] = (1.0- dt/p_taus[r])*X[t,r]        # everybody decay
+
+        if t == next_spike-1:
+            for r in range(R):
+                X[t+1,r] += 1.0                          # everybody decay and jump
+            
+            spks_cnt += 1
+            if spks_cnt < p_spks_L-1:
+                next_spike = int(p_spks_i[spks_cnt])
+    return X
+    
 
 class Filter_Exps(Filter) :
 
@@ -72,6 +102,11 @@ class Filter_Exps(Filter) :
         Compute the interpolated filter self.filter h(t) = sum_j b_j*exp(-t/tau_j) with a given time resolution dt as well as its support self.supportfilter (i.e., time vector)
         """        
         
+        print 'FilterExps: computeInterpolatedFilter'
+        print('self filter_coeffnB %d # self.filter_coeff: %d' % (self.filter_coeffNb, len(self.filter_coeff)))
+        print('filter coeffs:', self.filter_coeff)
+        if self.filter_coeffNb != len(self.filter_coeff):
+            raise ValueError()
         if self.filter_coeffNb == len(self.filter_coeff) :
 
             filter_interpol_support = np.arange(self.getLength()/dt)*dt
@@ -87,8 +122,13 @@ class Filter_Exps(Filter) :
             self.filter = filter_interpol
         
         else :
-            
-            print "Error: number of filter coefficients does not match the number of basis functions!"
+            traceback.print_exc(file=sys.stdout) 
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print "*** print_tb:"
+            exc_tracebackp = traceback.print_tb(exc_traceback, limit=10, file=sys.stdout)
+            print ("**", p)
+            exit(0)
+            raise ValueError("Error: number of filter coefficients does not match the number of basis functions!")
         
         return 0
         
@@ -128,28 +168,32 @@ class Filter_Exps(Filter) :
         X  = np.zeros((p_T,R))
         X  = X.astype("double")
 
-      
-        code =  """
-                #include <math.h>
-                
-                int   T_ind      = int(p_T);                
-                float dt         = float(p_dt); 
-
-
-                // CONVOLUTION
-                
-                for (int t=0; t<T_ind-1; t++) {
-       
-                    for (int r=0; r<R; r++) 
-                        X(t+1,r) = (1.0- dt/p_taus(r))*X(t,r) + I(t)*dt;
-                                          
-                }
-                
-                """
- 
-        vars = [ 'p_T', 'p_dt', 'I', 'p_taus', 'X', 'R'] 
+        # for t in range(T_ind):
+        #     for r in range(R):
+        #         X[t+1, r] = (1.0- p_dt/p_taus(r))*X[t,r] + I[t]*p_dt
         
-        v = weave.inline(code, vars, type_converters=converters.blitz)
+        X = convolve(I, X, R, dt, p_T, p_taus)
+        # code =  """
+        #         #include <math.h>
+        #
+        #         int   T_ind      = int(p_T);
+        #         float dt         = float(p_dt);
+        #
+        #
+        #         // CONVOLUTION
+        #
+        #         for (int t=0; t<T_ind-1; t++) {
+        #
+        #             for (int r=0; r<R; r++)
+        #                 X(t+1,r) = (1.0 - dt/p_taus(r))*X(t,r) + I(t)*dt;
+        #
+        #         }
+        #
+        #         """
+        #
+        # vars = [ 'p_T', 'p_dt', 'I', 'p_taus', 'X', 'R']
+        #
+        # v = weave.inline(code, vars, type_converters=converters.blitz)
  
         return X
         
@@ -190,46 +234,66 @@ class Filter_Exps(Filter) :
         X  = np.zeros((p_T,R))
         X  = X.astype("double")
 
-      
-        code =  """
-                #include <math.h>
-                
-                int   T_ind      = int(p_T);                
-                float dt         = float(p_dt); 
-                
-                int spks_L     = int(p_spks_L);  
-                int spks_cnt   = 0;
-                int next_spike = int(p_spks_i(0));
+        print 'spiketrainbasisfunctions'
+
+        X = convolve_basis(X, R, dt, p_spks_i, p_spks_L, p_T, p_taus)
+        # spks_cnt = 0
+        # next_spike = p_spks_i[0]
+        # for t in range(p_T-1):
+        #     for r in range(R):
+        #         X[t+1,r] = (1.0- p_dt/p_taus[r])*X[t,r]        # everybody decay
+        #
+        #
+        #     if t == next_spike-1:
+        #
+        #         for r in range(R):
+        #             X[t+1,r] += 1.0                          # everybody decay and jump
+        #
+        #         spks_cnt += 1;
+        #         if spks_cnt < p_spks_L-1:
+        #             next_spike = int(p_spks_i[spks_cnt])
 
 
-                // CONVOLUTION
-                
-                for (int t=0; t<T_ind-1; t++) {
-       
 
-        
-                    for (int r=0; r<R; r++) 
-                        X(t+1,r) = (1.0- dt/p_taus(r))*X(t,r);        // everybody decay
-      
-                    
-                    if (t == next_spike-1) {
-                    
-                        for (int r=0; r<R; r++) { 
-                            X(t+1,r) += 1.0;                          // everybody decay and jump
-                        } 
-                        
-                        spks_cnt += 1;
-                        next_spike = int(p_spks_i(spks_cnt));
-                    }
-                                    
-                }
-                
-                """
- 
-        vars = [ 'p_T', 'p_dt', 'p_spks_L', 'p_spks_i', 'p_taus', 'X', 'R'] 
-        
-        v = weave.inline(code, vars, type_converters=converters.blitz)
-
+        # code =  """
+        #         #include <math.h>
+        #
+        #         int   T_ind      = int(p_T);
+        #         float dt         = float(p_dt);
+        #
+        #         //int spks_L     = int(p_spks_L);
+        #         int spks_cnt   = 0;
+        #         int next_spike = int(p_spks_i(0));
+        #
+        #
+        #         // CONVOLUTION
+        #
+        #         for (int t=0; t<T_ind-1; t++) {
+        #
+        #
+        #
+        #             for (int r=0; r<R; r++)
+        #                 X(t+1,r) = (1.0- dt/p_taus(r))*X(t,r);        // everybody decay
+        #
+        #
+        #             if (t == next_spike-1) {
+        #
+        #                 for (int r=0; r<R; r++) {
+        #                     X(t+1,r) += 1.0;                          // everybody decay and jump
+        #                 }
+        #
+        #                 spks_cnt += 1;
+        #                 next_spike = int(p_spks_i(spks_cnt));
+        #             }
+        #
+        #         }
+        #
+        #         """
+        #
+        # vars = [ 'p_T', 'p_dt', 'p_spks_L', 'p_spks_i', 'p_taus', 'X', 'R']
+        #
+        # v = weave.inline(code, vars, type_converters=converters.blitz)
+        print('---spiketraingbasis...')
       
         return X
 
