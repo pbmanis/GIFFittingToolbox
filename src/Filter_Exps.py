@@ -5,8 +5,8 @@ from numba import jit
 #from scipy.signal import fftconvolve
 # from scipy import weave
 # from scipy.weave import converters
-import weave
-from weave import converters
+# import weave
+# from weave import converters
 
 import Tools
 import sys, traceback
@@ -102,9 +102,9 @@ class Filter_Exps(Filter) :
         Compute the interpolated filter self.filter h(t) = sum_j b_j*exp(-t/tau_j) with a given time resolution dt as well as its support self.supportfilter (i.e., time vector)
         """        
         
-        print 'FilterExps: computeInterpolatedFilter'
-        print('self filter_coeffnB %d # self.filter_coeff: %d' % (self.filter_coeffNb, len(self.filter_coeff)))
-        print('filter coeffs:', self.filter_coeff)
+        # print 'FilterExps: computeInterpolatedFilter'
+        # print('self filter_coeffnB %d # self.filter_coeff: %d' % (self.filter_coeffNb, len(self.filter_coeff)))
+        # print('filter coeffs:', self.filter_coeff)
         if self.filter_coeffNb != len(self.filter_coeff):
             raise ValueError()
         if self.filter_coeffNb == len(self.filter_coeff) :
@@ -122,12 +122,12 @@ class Filter_Exps(Filter) :
             self.filter = filter_interpol
         
         else :
-            traceback.print_exc(file=sys.stdout) 
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            print "*** print_tb:"
-            exc_tracebackp = traceback.print_tb(exc_traceback, limit=10, file=sys.stdout)
-            print ("**", p)
-            exit(0)
+            # traceback.print_exc(file=sys.stdout)
+            # exc_type, exc_value, exc_traceback = sys.exc_info()
+            # print "*** print_tb:"
+            # exc_tracebackp = traceback.print_tb(exc_traceback, limit=10, file=sys.stdout)
+            # print ("**", p)
+            # exit(0)
             raise ValueError("Error: number of filter coefficients does not match the number of basis functions!")
         
         return 0
@@ -173,6 +173,8 @@ class Filter_Exps(Filter) :
         #         X[t+1, r] = (1.0- p_dt/p_taus(r))*X[t,r] + I[t]*p_dt
         
         X = convolve(I, X, R, dt, p_T, p_taus)
+        
+        # code moved into numba jit
         # code =  """
         #         #include <math.h>
         #
@@ -234,9 +236,10 @@ class Filter_Exps(Filter) :
         X  = np.zeros((p_T,R))
         X  = X.astype("double")
 
-        print 'spiketrainbasisfunctions'
+#        print 'spiketrainbasisfunctions'
 
         X = convolve_basis(X, R, dt, p_spks_i, p_spks_L, p_T, p_taus)
+        # code moved to numba jit
         # spks_cnt = 0
         # next_spike = p_spks_i[0]
         # for t in range(p_T-1):
@@ -255,6 +258,7 @@ class Filter_Exps(Filter) :
 
 
 
+        # original weave code
         # code =  """
         #         #include <math.h>
         #
@@ -293,7 +297,6 @@ class Filter_Exps(Filter) :
         # vars = [ 'p_T', 'p_dt', 'p_spks_L', 'p_spks_i', 'p_taus', 'X', 'R']
         #
         # v = weave.inline(code, vars, type_converters=converters.blitz)
-        print('---spiketraingbasis...')
       
         return X
 

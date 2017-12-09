@@ -112,6 +112,8 @@ class GIF(ThresholdModel) :
 
     def simulate(self, I, V0, pars=None):
         p_T         = len(I)
+        self.p_T = p_T
+        self.V0 = V0
         # Model kernels   
         (p_eta_support, p_eta) = self.eta.getInterpolatedFilter(self.dt)
         p_eta       = p_eta.astype('double')
@@ -143,11 +145,9 @@ class GIF(ThresholdModel) :
                 }
             nt_pars = namedtuple('pars', dpars.keys())  # create named tuple object from dict
             pars = nt_pars(**dpars)  # named tuple for pars for numba
-        else:
-            print 'converting to named tuple'
+        if isinstance(pars, dict):
             nt_pars = namedtuple('pars', pars.keys())  # create named tuple object from dict
             pars = nt_pars(**pars)  # named tuple for pars for numba
-        print pars
                 # Define arrays
         V = np.zeros(p_T)
         V = np.array(V, dtype="double")
@@ -159,11 +159,9 @@ class GIF(ThresholdModel) :
         eta_sum = np.array(eta_sum, dtype="double")
         gamma_sum = np.zeros(p_T + 2*p_gamma_l) # np.array(np.zeros(p_T + 2*p_gamma_l), dtype="double"
         gamma_sum = np.array(gamma_sum, dtype="double")
-        T = np.array(np.arange(p_T)*self.dt, dtype="double")
-        
+        T = np.array(np.arange(p_T)*self.dt, dtype="double")        
         p_random = np.array([0], dtype="double")
         gif_mcurrent.integrate(T, V, I, eta_sum, p_eta, gamma_sum, p_gamma, p_random, spks, nt, pars)          
-
         eta_sum   = eta_sum[:p_T]     
         V_T = gamma_sum[:p_T] + pars.Vt_star
         spks = (np.where(spks==1)[0])*self.dt
@@ -187,24 +185,19 @@ class GIF(ThresholdModel) :
         """
  
         p_T         = len(I)
-        # Model kernels   
+        self.p_T = p_T
+        self.V0 = V0
+                # Model kernels   
         (p_eta_support, p_eta) = self.eta.getInterpolatedFilter(self.dt)
         p_eta       = p_eta.astype('double')
         p_eta_l     = len(p_eta)
-        print "p_eta: ", self.dt, p_eta
-        print 'spks: ', spks
-        print self.gamma
-        (p_gamma_support, p_gamma) = self.gamma.getInterpolatedFilter(self.dt)
-        print "p_gamma: ", self.dt, p_gamma
-        p_gamma     = p_gamma.astype('double')
-        p_gamma_l   = len(p_gamma)
         
         if pars is None: # Input parameters
             dpars  = {
                 'Vt_star': self.Vt_star,
                 'Trefract' : self.Tref,
                 'Trefract_ind': int(self.Tref/self.dt),
-                'T_ind': p_T,
+                'T_ind': self.p_T,
                 'Vr': self.Vr,
                 'DeltaV': self.DV,
                 'C': self.C,
@@ -214,15 +207,16 @@ class GIF(ThresholdModel) :
                 'El': self.El,
                 'dt' : self.dt,
                 'lambda0': self.lambda0,
-                'p_eta_l': len(p_eta),
-                'p_gamma_l': len(p_gamma),
-                'V0': V0,
+                'V0': self.V0,
                 'seed': self.seed,  # random number seed.
             }
+            nt_pars = namedtuple('pars', dpars.keys())  # create named tuple object from dict
+            pars = nt_pars(**dpars)  # named tuple for pars for numba
 
-        nt_pars = namedtuple('pars', dpars.keys())  # create named tuple object from dict
-        pars = nt_pars(**dpars)  # named tuple for pars for numba
-        p_random = [0]
+        if isinstance(pars, dict):
+            nt_pars = namedtuple('pars', dpars.keys())  # create named tuple object from dict
+            pars = nt_pars(**dpars)  # named tuple for pars for numba
+        
         # Define arrays
         nt = np.array(np.zeros(p_T), dtype="double")    
         V        = np.array(np.zeros(p_T), dtype="double")
@@ -232,10 +226,10 @@ class GIF(ThresholdModel) :
 
 
         # Compute adaptation current (sum of eta triggered at spike times in spks) 
-        eta_sum  = np.array(np.zeros(int(p_T + 1.1*p_eta_l + pars.Trefract_i)), dtype="double")   
+        eta_sum  = np.array(np.zeros(int(p_T + 1.1*p_eta_l + pars.Trefract_ind)), dtype="double")   
         
         for s in spks_i :
-            eta_sum[s + 1 + p_Tref_i  : s + 1 + pars.Trefract_ind + p_eta_l] += p_eta
+            eta_sum[s + 1 + pars.Trefract_ind  : s + 1 + pars.Trefract_ind + p_eta_l] += p_eta
         
         eta_sum  = eta_sum[:p_T]  
    
@@ -243,7 +237,8 @@ class GIF(ThresholdModel) :
         V[0] = V0
 
         T = np.arange(p_T)*self.dt
-        gif_mcurrent.integrate(time, V, I, eta_sum, p_eta, gamma_sum, p_gamma, p_random, spks, nt, pars)          
+        # using cython version in gif_mcurrent.pyx
+        gif_mcurrent.integrate_forcespikes(T, V, I, eta_sum, p_eta, spks, nt, pars)          
         eta_sum = eta_sum[:p_T]     
         return (T, V, eta_sum)
 
@@ -358,13 +353,12 @@ class GIF(ThresholdModel) :
         for i, tr in enumerate(experiment.trainingset_traces) :
         
             if tr.useTrace :
-                print ('fitting on %d' % i)
+                print ('Fitting on trace %d' % i)
                 cnt += 1
                 reprint( "Compute X matrix for repetition %d" % (cnt) )          
                 
                 # Compute the the X matrix and Y=\dot_V_data vector used to perform the multilinear linear regression (see Eq. 17.18 in Pozzorini et al. PLOS Comp. Biol. 2015)
                 (X_tmp, Y_tmp) = self.fitSubthresholdDynamics_Build_Xmatrix_Yvector(tr, DT_beforeSpike=DT_beforeSpike)
-                print('fit subthrehold...')
                 X.append(X_tmp)
                 Y.append(Y_tmp)
     
@@ -398,7 +392,6 @@ class GIF(ThresholdModel) :
         self.C  = 1./b[1]
         self.gl = -b[0]*self.C
         self.El = b[2]*self.C/self.gl
-        print 'setting filter coefficients'
         self.eta.setFilter_Coefficients(-b[3:]*self.C)
 
         self.printParameters()   
@@ -417,7 +410,7 @@ class GIF(ThresholdModel) :
         for i, tr in enumerate(experiment.trainingset_traces ):
         
             if tr.useTrace :
-                print 'use trace %d : with %d spikes' % (i, len(tr.getSpikeTimes()))
+#                print 'use trace %d : with %d spikes' % (i, len(tr.getSpikeTimes()))
                 # Simulate subthreshold dynamics 
                 (time, V_est, eta_sum_est) = self.simulateDeterministic_forceSpikes(tr.I, tr.V[0], tr.getSpikeTimes())
                 
@@ -599,7 +592,7 @@ class GIF(ThresholdModel) :
         for i, tr in enumerate(experiment.trainingset_traces):
             
             if tr.useTrace :              
-                print 'use trace %d : with %d spikes' % (i, len(tr.getSpikeTimes()))
+#                print 'use trace %d : with %d spikes' % (i, len(tr.getSpikeTimes()))
                 traces_nb += 1
                 
                 # Simulate subthreshold dynamics 
@@ -866,6 +859,31 @@ class GIF(ThresholdModel) :
         print "DV (mV):\t%0.3f"     % (self.DV)          
         print "-------------------------\n"
                   
+
+    def getParameters(self):
+        dpars  = {
+            'Vt_star': self.Vt_star,
+            'Trefract' : self.Tref,
+            'Trefract_ind': int(self.Tref/self.dt),
+            'T_ind': self.p_T,
+            'Vr': self.Vr,
+            'DeltaV': self.DV,
+            'C': self.C,
+            'gl': self.gl,
+            'gn': self.gn,
+            'En': self.En,
+            'El': self.El,
+            'dt' : self.dt,
+            'lambda0': self.lambda0,
+            'V0': self.V0,
+            'seed': self.seed,  # random number seed.
+        }
+
+        nt_pars = namedtuple('pars', dpars.keys())  # create named tuple object from dict
+        pars = nt_pars(**dpars)  # named tuple for pars for numba
+        return pars
+
+
 
     @classmethod
     def compareModels(cls, GIFs, labels=None):

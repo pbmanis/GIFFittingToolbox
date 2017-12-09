@@ -62,7 +62,7 @@ class Filter :
         """
         Set all parameters b_j to zero.
         """    
-        print('Filter:setFilter_toZero nb...: ', self.filter_coeffNb)
+#        print('Filter:setFilter_toZero nb...: ', self.filter_coeffNb)
         self.filter_coeff = np.zeros(self.filter_coeffNb)
 
 
@@ -71,7 +71,7 @@ class Filter :
         """
         Manually set the coefficients of the filter with coeff (i.e. the values that define the magnitude of each rectangular function).
         """
-        print ("Filter: set FilterCoefficients:::::MANUALLY SETTING FILTER COEFFS")
+#        print ("Filter: set FilterCoefficients:::::MANUALLY SETTING FILTER COEFFS")
         if len(coeff) == self.filter_coeffNb :
             
             self.filter_coeff = coeff
@@ -100,9 +100,6 @@ class Filter :
         """
         Compute and return the interpolated filter as well as its support.
         """
-        print('filter:getinterpolatedfilter')
-        print '   filtersupport: ', self.filtersupport
-        print '   filter:        ', self.filter
         
         self.computeInterpolatedFilter(dt)
         

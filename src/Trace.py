@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 #from scipy import weave
-import weave
+#import weave
 from numba import jit
 
 import ReadIBW
@@ -226,56 +226,56 @@ class Trace :
 
 
 
-    def detectSpikes_weave(self, threshold=0.0, ref=3.0):
-        
-        """
-        Detect action potentials by threshold crossing (parameter threshold, mV) from below (i.e. with dV/dt>0).
-        To avoid multiple detection of same spike due to noise, use an 'absolute refractory period' ref, in ms.
-        Code implemented in C.
-        """ 
-        
-        # Define parameters
-        p_T_i     = int(np.round(self.T/self.dt))
-        p_ref_ind = int(np.round(ref/self.dt))
-        p_threshold = threshold
-
-        # Define vectors
-        V  =   np.array(self.V, dtype='double')
-
-                
-        spike_train = np.zeros(p_T_i)
-        spike_train = np.array(spike_train, dtype='double')
-        
-        
-        code =  """
-                #include <math.h>
-                
-                int T_i = int(p_T_i)-1;                
-                int ref_ind = int(p_ref_ind);   
-                float threshold = p_threshold;
-            
-                int t = 0;
-                                                                
-                while (t < T_i) {
-                    
-                    if (V[t] >= threshold && V[t-1] < threshold) {
-                        spike_train[t] = 1.0;
-                        t += ref_ind;
-                    }
-                    
-                    t++;
-               
-                }  
-                """
- 
-        vars = [ 'p_T_i', 'p_ref_ind', 'p_threshold', 'V', 'spike_train' ]
-        
-        v = weave.inline(code, vars)
-
-        spks_ind = np.where(spike_train==1.0)[0]
-
-        self.spks = np.array(spks_ind)
-        self.spks_flag = True
+    # def detectSpikes_weave(self, threshold=0.0, ref=3.0):
+    #
+    #     """
+    #     Detect action potentials by threshold crossing (parameter threshold, mV) from below (i.e. with dV/dt>0).
+    #     To avoid multiple detection of same spike due to noise, use an 'absolute refractory period' ref, in ms.
+    #     Code implemented in C.
+    #     """
+    #
+    #     # Define parameters
+    #     p_T_i     = int(np.round(self.T/self.dt))
+    #     p_ref_ind = int(np.round(ref/self.dt))
+    #     p_threshold = threshold
+    #
+    #     # Define vectors
+    #     V  =   np.array(self.V, dtype='double')
+    #
+    #
+    #     spike_train = np.zeros(p_T_i)
+    #     spike_train = np.array(spike_train, dtype='double')
+    #
+    #
+    #     code =  """
+    #             #include <math.h>
+    #
+    #             int T_i = int(p_T_i)-1;
+    #             int ref_ind = int(p_ref_ind);
+    #             float threshold = p_threshold;
+    #
+    #             int t = 0;
+    #
+    #             while (t < T_i) {
+    #
+    #                 if (V[t] >= threshold && V[t-1] < threshold) {
+    #                     spike_train[t] = 1.0;
+    #                     t += ref_ind;
+    #                 }
+    #
+    #                 t++;
+    #
+    #             }
+    #             """
+    #
+    #     vars = [ 'p_T_i', 'p_ref_ind', 'p_threshold', 'V', 'spike_train' ]
+    #
+    #     v = weave.inline(code, vars)
+    #
+    #     spks_ind = np.where(spike_train==1.0)[0]
+    #
+    #     self.spks = np.array(spks_ind)
+    #     self.spks_flag = True
 
 
 

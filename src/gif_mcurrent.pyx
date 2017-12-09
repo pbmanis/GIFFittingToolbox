@@ -158,9 +158,6 @@ def integrate_forcespikes(double[:] T,
             double[:] I, 
             double[:] eta_sum, 
             double[:] p_eta, 
-            double[:] gamma_sum,
-            double[:] p_gamma,
-            double[:] p_randnums,
             double[:] spks,
             double[:] nt,
                       pars):
@@ -182,24 +179,21 @@ def integrate_forcespikes(double[:] T,
         cdef float n_tau, n_inf, n
         cdef float lambdan
         cdef float p_dontspike
-        cdef float C = pars['C']
-        cdef float gl = pars['gl']
-        cdef float El  = pars['El']
-        cdef float gn= pars['gn']
-        cdef float En = pars['En']
-        cdef float Vr = pars['Vr']
-        cdef float dt = pars['dt']
-        cdef float lambda0= pars['lambda0']
-        cdef int T_ind = pars['T_ind']
-        cdef int Trefract_ind= pars['Trefract_ind']
-        cdef float Vt_star = pars['Vt_star']
-        cdef float DeltaV = pars['DeltaV'] 
-        cdef int p_eta_l = p_eta.shape[0]
-        cdef int p_gamma_l = p_gamma.shape[0]
+        cdef float C = pars.C # pars['C']
+        cdef float gl = pars.gl # pars['gl']
+        cdef float El  = pars.El # pars['El']
+        cdef float gn= pars.gn # pars['gn']
+        cdef float En = pars.En # pars['En']
+        cdef float Vr = pars.Vr # pars['Vr']
+        cdef float dt = pars.dt # pars['dt']
+        cdef float lambda0 = pars.lambda0 # pars['lambda0']
+        cdef int T_ind = pars.T_ind # pars['T_ind']
+        cdef int Trefract_ind = pars.Trefract_ind # pars['Trefract_ind']
+        cdef float Vt_star = pars.Vt_star # pars['Vt_star']
+        cdef float DeltaV = pars.DeltaV # pars['DeltaV'] 
         cdef float vtmp, dtc, inv_dt, inv_deltav
         cdef long int seed = 1
         cdef int npts = 0
-        cdef int nrandom = len(p_randnums)
         cdef int spks_cnt = 0
         
         n_tau = ngate_tau(V[0])
