@@ -8,13 +8,13 @@
 ## python setup.py build_ext --inplace
 #
 
+import numpy as np
 cimport cython
 from libc.math cimport exp
 
 cdef extern from "stdlib.h":
     double drand48()
     void srand48(long int seedval)
-
 
 cdef double alphan(double v):
     return 0.0001*(v + 45)/(1. - exp(-(v + 45.)/9.))
@@ -32,7 +32,7 @@ cdef double ngate_inf(double v):
     return ninf
 
 def ng_tau(v):  # required for python return access... 
-    return ngate_tau(v)
+    return 1./ngate_tau(v)
 
 def ng_inf(v):
     return ngate_inf(v)
@@ -82,12 +82,13 @@ def integrate(double[:] T,
         cdef float DeltaV = pars.DeltaV # pars['DeltaV'] 
         cdef int p_eta_l = p_eta.shape[0]
         cdef int p_gamma_l = p_gamma.shape[0]
-        cdef float vtmp, dtc, inv_dt, inv_deltav
+        cdef double vtmp, dtc, inv_dt, inv_deltav
         cdef long int seed = 1
         cdef int npts = 0
+        cdef int lastt = 0
         cdef int nrandom = len(p_randnums)
         
-        srand48(seed)
+        srand48(seed) # initialize random number generator with specified seed
         
 #        print('C gl El gn En Vr dt Trefract_ind, Vt_star, DeltaV, V0\n', C, gl, El, gn,
 #            En, Vr, dt, Trefract_ind, Vt_star, DeltaV, V[0])
@@ -96,49 +97,54 @@ def integrate(double[:] T,
         n_inf = ngate_inf(V[0])
         n = n_inf    
         t = 0
+        nt[t] = n
         dtc = dt/C
         inv_dt =1./dt
         inv_deltav = 1./DeltaV
-        npts = T.shape[0]
-        for i in range(npts-1):
+        spks = np.zeros(T_ind)
+        for i in range(T_ind):
             # INTEGRATE VOLTAGE
-            vtmp = V[t]
-            V[t+1] = vtmp + dtc*( -gl*(vtmp - El) - gn*n*(vtmp - En) + I[t] - eta_sum[t] )
+            V[t+1] = V[t] + dtc*( - gl*(V[t] - El) - gn*n*(V[t] - En) + I[t] - eta_sum[t] )
 
-            n_tau = ngate_tau(vtmp)  # note result is inverse of tau
-            n_inf = ngate_inf(vtmp)
+           # n_tau = ngate_tau(V[t])  # note result is inverse of tau
+            #n_inf = ngate_inf(V[t])
             # advance n
-            n = n + (n_inf - n)*n_tau
+            n = n + (ngate_inf(V[t]) - n)*ngate_tau(V[t])
             nt[t] = n
 
-            vtmp = (V[t+1]-Vt_star-gamma_sum[t])*inv_deltav
-
-            if vtmp > 700.:
+            vtmp = (V[t+1] - Vt_star - gamma_sum[t]) * inv_deltav
+            if vtmp > 700.:  # prevent overflow
                 vtmp = 700.
             lambdan = lambda0*exp(vtmp)
             p_dontspike = exp(-lambdan*(dt/1000.0))  # since lambda0 is in Hz, dt must also be in Hz (this is why dt/1000.0)
-          
 
             # PRODUCE SPIKE STOCHASTICALLY
             #r = np.random.randint(0, 1000)/1000.
-            #r = random.randint(0, 1000)/1000.
-            if nrandom < npts:
+            if nrandom < T_ind:
                 r = drand48()  # use faster version...
             else:
                 r = p_randnums[t]
-
-            if (r > p_dontspike):
-                        
-                if t+1 < T_ind-1:
-                    spks[t+1] = 1.0 
+#            if p_dontspike != 1.0:   # test te values and show how it evilves
+#              if t > lastt+2:
+#                  print ''
+#              print 't %.0f, r: %.4f, p_dontspike: %.4f vtmp: %.4f vt*: %.4f gamma_sum: %.4f, p_gamma_l: %d' % (t, r, p_dontspike, vtmp, Vt_star, gamma_sum[t], p_gamma_l),
+#              if (r > p_dontspike):
+#                  print  '  ****'
+#              else:
+#                  print ''
+#              lastt = t
+                    
+            if (r > p_dontspike): # generate a spike  
+                if t+1 < T_ind-1:  
+                    spks[t+1] = 1.0  # set the spike at t+1
                     nt[t:t+Trefract_ind+1] = nt[t-1]  # save n state as well
-                V[t:t+Trefract_ind] = 0.
+                V[t+1:t+Trefract_ind] = 0.  # set v to 0 for duration of spike
 
-                t = t + Trefract_ind 
+                t = t + Trefract_ind   # advance to end of refractory period
 
-                if t+1 < T_ind-1:
-                    V[t+1] = Vr
-                    nt[t+1] = n
+                if (t+1) < (T_ind-1):  # are we still in bounds?
+                    V[t+1] = Vr  # reset V to Vr
+                    nt[t+1] = n  # update state variable
         
                 #UPDATE ADAPTATION PROCESSES
                 for j in range(p_eta_l):
@@ -146,9 +152,9 @@ def integrate(double[:] T,
 
                 for j in range(p_gamma_l):
                     gamma_sum[t+1+j] = gamma_sum[t+1+j] + p_gamma[j]
-    
+#                print 'Spike at t= %6d T_ind: %d V: %.2f V+: %.2f gamma_sum: %.4f, r=%.4f  p=%.4f' % (t, T_ind, V[t], V[t+1], gamma_sum[t], r, p_dontspike)    
             t = t + 1
-            if t >= npts-1:
+            if t >= T_ind-1:
                 break
 
 @cython.wraparound(False)
@@ -158,7 +164,7 @@ def integrate_forcespikes(double[:] T,
             double[:] I, 
             double[:] eta_sum, 
             double[:] p_eta, 
-            double[:] spks,
+            long[:] spks_i,
             double[:] nt,
                       pars):
         """
@@ -166,9 +172,8 @@ def integrate_forcespikes(double[:] T,
         V : np.array (voltages) 
         I " np.array (current injection)
         eta_sum : np.array for eta pre-spike function
-        gamma_sum np.array for gamma post-spike function
-        p_rsndnums : a precomputed array of random numbers (set to one value to do dynamically)
-        spks : returned array of spike times
+        p_eta : 
+        spks_i : indices of spikes to be forced
         nt : value of n over time (M current activation)
         pars : named tuple of parameters controlling the GIF model
 
@@ -201,31 +206,28 @@ def integrate_forcespikes(double[:] T,
         n = n_inf    
         dtc = dt/C
 
-        if spks[0] == 0.:
-            next_spike = -1  # never
-        else:
-            next_spike = spks[0] + Trefract_ind
+
+        next_spike = spks_i[0] + Trefract_ind
         spks_cnt = 0
         t = 0
         
-        for i in range(T.shape[0]-1):
+        for t in range(T.shape[0]-1):
             # INTEGRATE VOLTAGE
-            vtmp = V[t]
-            V[t+1] = vtmp + dtc*( -gl*(vtmp - El) - gn*n*(vtmp - En) + I[t] - eta_sum[t] )
+            V[t+1] = V[t] + dtc*( -gl*(V[t] - El) - gn*n*(V[t] - En) + I[t] - eta_sum[t] )
 
-            n_tau = ngate_tau(vtmp)  # note result is inverse of tau
-            n_inf = ngate_inf(vtmp)
+#            n_tau = ngate_tau(vtmp)  # note result is inverse of tau
+#            n_inf = ngate_inf(vtmp)
             # advance n
-            n = n + (n_inf - n)*n_tau
-            nt[t] = n
+#            n = n + (n_inf - n)*n_tau
+#            nt[t] = n
 
             if t == next_spike:
                 spks_cnt = spks_cnt + 1
-                next_spike = spks[spks_cnt] + Trefract_ind
+                next_spike = spks_i[spks_cnt] + Trefract_ind
                 V[t-1] = 0                   
                 V[t] = Vr
-                t=t-1
-            t = t + 1
-            if t >= npts-1:
+                t = t - 1
+
+            if t >= T.shape[0]-1:
                 break
   

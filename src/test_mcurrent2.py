@@ -38,7 +38,7 @@ def show_sim(res):
     fig, ax = mpl.subplots(5,1)
     ax = ax.ravel()
 
-    mapax = {'weave': 0, 'Numba': 1, 'numba': 1, 'Cython': 2, 'cython': 2, 'mod': 3}
+    mapax = {'weave': 0, 'Numba': 1, 'numba': 1, 'Cython': 2, 'cython': 2, 'square': 2, 'mod': 3}
     for r in res.keys():
         Vs = r[1]
         T = res[r][0]
@@ -51,7 +51,7 @@ def show_sim(res):
     mpl.show()
 
 
-testtypes = ['cython', 'weave', 'numba', 'mod', 'all']
+testtypes = ['cython', 'weave', 'numba', 'mod', 'all', 'square']
 ntrials = 100
 
 # python setup.py build_ext --inplace
@@ -72,7 +72,7 @@ C = 0.2
 dt = 0.1
 gl = 0.02
 El = -60.
-gn = 0.00
+gn = 0.02
 En = -80.
 
 Vr = -70.
@@ -241,25 +241,38 @@ if testmode in ['cython', 'all']:
         eta_sum = np.zeros(T_ind+2*p_eta_l)
         gamma_sum = np.zeros(T_ind+2*p_gamma_l)
         sti = timeit.default_timer()
-        gif_mcurrent.integrate(T, V, I, eta_sum, p_eta, gamma_sum, p_gamma, randnums, spks, ntx[i], pars)
+        gif_mcurrent.integrate(T, V, I, eta_sum, p_eta, gamma_sum, p_gamma, randnums, spks, ntx[i], npars)
         Vs[i] = V
         tx[i] = timeit.default_timer() - sti
     print_times(tx, 'cython')
     res['cython'] = [T, Vs, ntx]
 
 
-if testmode in ['mod']:
-    cell = h.Section()
-    cell.insert('GIFn')
-    
-    exit(0)
+if testmode in ['square', 'all']:
+    npars = nt_pars(**pars)  # named tuple for pars for numba
+    tx = np.zeros(ntrials)
+    Vs = np.zeros((ntrials, T_ind))
+    ntx = np.zeros((ntrials, T_ind))
+    T = np.arange(10000)*0.1
+    V = np.zeros_like(T)
+    I = np.zeros_like(T)
+    for i in range(ntrials):
+        eta_sum = np.zeros(T_ind+2*p_eta_l)
+        gamma_sum = np.zeros(T_ind+2*p_gamma_l)
+        sti = timeit.default_timer()
+        IN = I + i*0.005
+        gif_mcurrent.integrate(T, V, IN, eta_sum, p_eta, gamma_sum, p_gamma, randnums, spks, ntx[i], npars)
+        Vs[i] = V
+        tx[i] = timeit.default_timer() - sti
+    print_times(tx, 'cython')
+    res['cython'] = [T, Vs, ntx]
 
 
 
 fig, ax = mpl.subplots(4,1)
 ax = ax.ravel()
 
-mapax = {'weave': 0, 'Numba': 1, 'numba': 1, 'Cython': 2, 'cython': 2}
+mapax = {'weave': 0, 'Numba': 1, 'numba': 1, 'Cython': 2, 'cython': 2, 'square': 2}
 for r in res.keys():
     print 'r'
     Vs = r[1]
